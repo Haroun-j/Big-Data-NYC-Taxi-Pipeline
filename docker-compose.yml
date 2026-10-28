@@ -150,6 +150,72 @@ services:
     networks:
       - spark-network
 
+  # --- Airflow -------------------------------------------------------------
+
+  airflow-postgres:
+    image: postgres:13
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  airflow-webserver:
+    build: ./docker/airflow
+    image: nyc-taxi/airflow:2.8.1
+    container_name: airflow-webserver
+    user: root   # needed to talk to the Docker socket
+    depends_on:
+      - airflow-postgres
+    environment: &airflow-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@airflow-postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      # Passed through to the containers the DAG starts.
+      PROJECT_DIR: ${PROJECT_DIR}
+      DOCKER_NETWORK: nyc-taxi-net
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: &airflow-volumes
+      - ./orchestration/dags:/opt/airflow/dags
+      - ./orchestration/logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    command: webserver
+    networks:
+      - spark-network
+
+  airflow-scheduler:
+    build: ./docker/airflow
+    image: nyc-taxi/airflow:2.8.1
+    container_name: airflow-scheduler
+    user: root
+    depends_on:
+      - airflow-webserver
+    environment: *airflow-env
+    volumes: *airflow-volumes
+    command: scheduler
+    networks:
+      - spark-network
+
 networks:
   spark-network:
     name: nyc-taxi-net
@@ -159,3 +225,4 @@ volumes:
   minio-data:
   postgres-data:
   metabase-data:
+  airflow-postgres-data:
