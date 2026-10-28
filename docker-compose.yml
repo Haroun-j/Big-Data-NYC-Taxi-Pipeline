@@ -120,6 +120,36 @@ services:
     networks:
       - spark-network
 
+  # --- Fare prediction service (Streamlit) ---------------------------------
+
+  ml-service:
+    build: ./docker/ml-service
+    image: nyc-taxi/ml-service
+    container_name: ml-service
+    working_dir: /app
+    volumes:
+      - ./ml_service:/app
+    ports:
+      - "8501:8501"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: streamlit run src/app.py --server.port 8501 --server.address 0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2.0"
+        reservations:
+          memory: 2G
+    restart: unless-stopped
+    depends_on:
+      - minio
+    networks:
+      - spark-network
+
 networks:
   spark-network:
     name: nyc-taxi-net
