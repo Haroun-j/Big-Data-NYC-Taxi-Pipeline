@@ -1,0 +1,35 @@
+# Secrets
+.env
+
+# Scala / sbt
+target/
+.bsp/
+project/project/
+project/target/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Data and models (downloaded / generated, see README)
+data/raw/
+data/interim/
+data/processed/
+ml_service/data/*.parquet
+ml_service/models/*.joblib
+
+# Runtime
+orchestration/logs/
+*.log
+minio-data/
+postgres-data/
+metabase-data/
